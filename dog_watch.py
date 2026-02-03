@@ -121,6 +121,7 @@ def parse_detections(imx500, intrinsics, metadata):
     """Parse IMX500 output tensors into a list of (label, confidence, bbox)."""
     np_outputs = imx500.get_outputs(metadata, add_batch=True)
     if np_outputs is None:
+        log.info("No inference output yet (firmware may still be loading)")
         return []
 
     # MobileNet SSD post-processed output format:
@@ -132,9 +133,11 @@ def parse_detections(imx500, intrinsics, metadata):
 
     results = []
     for i in range(num):
-        label = intrinsics.labels[int(classes[i])]
+        class_id = int(classes[i])
+        label = intrinsics.labels[class_id] if class_id < len(intrinsics.labels) else f"unknown({class_id})"
         score = float(scores[i])
         bbox = tuple(float(v) for v in boxes[i])
+        log.info("  Detection: class_id=%d label=%r score=%.2f bbox=%s", class_id, label, score, bbox)
         results.append((label, score, bbox))
     return results
 
