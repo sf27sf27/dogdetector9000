@@ -202,19 +202,25 @@ def send_notification(timestamp_str, confidence, dog_count, filepath=None):
         }
 
         if filepath and Path(filepath).exists():
-            # Send the image as the body with message in header
+            # PUT the image as body; message goes in header
             headers["Message"] = message
             headers["Filename"] = Path(filepath).name
             with open(filepath, "rb") as f:
                 data = f.read()
+            req = urllib.request.Request(
+                f"{NTFY_SERVER}/{NTFY_TOPIC}",
+                data=data,
+                headers=headers,
+                method="PUT",
+            )
         else:
             data = message.encode("utf-8")
+            req = urllib.request.Request(
+                f"{NTFY_SERVER}/{NTFY_TOPIC}",
+                data=data,
+                headers=headers,
+            )
 
-        req = urllib.request.Request(
-            f"{NTFY_SERVER}/{NTFY_TOPIC}",
-            data=data,
-            headers=headers,
-        )
         urllib.request.urlopen(req, timeout=30)
     except Exception as e:
         log.error("Notification error: %s", e)
