@@ -16,7 +16,7 @@ from pathlib import Path
 
 from picamera2 import Picamera2
 from picamera2.devices.imx500 import IMX500, NetworkIntrinsics
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from flask import Flask, send_from_directory, jsonify, render_template_string
 
@@ -167,11 +167,13 @@ def analyze_frame(imx500, intrinsics, metadata):
         dog_count: number of dogs detected in the ROI
         max_dog_confidence: highest confidence among detected dogs
         human_detected: whether any human was detected
+        dog_boxes: list of (bbox, score) for each detected dog in the ROI
     """
     detections = parse_detections(imx500, intrinsics, metadata)
     dog_count = 0
     max_dog_confidence = 0.0
     human_detected = False
+    dog_boxes = []
 
     for label, score, bbox in detections:
         if label == PERSON_CLASS and score >= PERSON_CONFIDENCE_THRESHOLD:
@@ -183,8 +185,39 @@ def analyze_frame(imx500, intrinsics, metadata):
             if overlap >= ROI_OVERLAP_THRESHOLD:
                 dog_count += 1
                 max_dog_confidence = max(max_dog_confidence, score)
+                dog_boxes.append((bbox, score))
 
-    return dog_count, max_dog_confidence, human_detected
+    return dog_count, max_dog_confidence, human_detected, dog_boxes
+
+
+def draw_dog_boxes(img, dog_boxes):
+    """Draw bounding boxes and confidence labels on the image for each detected dog."""
+    draw = ImageDraw.Draw(img)
+    w, h = img.size
+
+    for bbox, score in dog_boxes:
+        # bbox is normalized (y1, x1, y2, x2) or (x1, y1, x2, y2) — convert to pixel coords
+        x1, y1, x2, y2 = bbox
+        px1, py1, px2, py2 = int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h)
+
+        # Draw box
+        outline_color = (0, 255, 0)
+        for offset in range(2):  # 2px thick
+            draw.rectangle([px1 - offset, py1 - offset, px2 + offset, py2 + offset],
+                           outline=outline_color)
+
+        # Draw label background + text
+        label_text = f"dog {score:.0%}"
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
+        text_bbox = draw.textbbox((px1, py1), label_text, font=font)
+        draw.rectangle([text_bbox[0] - 1, text_bbox[1] - 1, text_bbox[2] + 1, text_bbox[3] + 1],
+                       fill=outline_color)
+        draw.text((px1, py1), label_text, fill=(0, 0, 0), font=font)
+
+    return img
 
 
 def send_notification(timestamp_str, confidence, dog_count, filepath=None):
@@ -462,7 +495,7 @@ def main():
             request = picam2.capture_request()
             try:
                 metadata = request.get_metadata()
-                dog_count, confidence, human_found = analyze_frame(
+                dog_count, confidence, human_found, dog_boxes = analyze_frame(
                     imx500, intrinsics, metadata
                 )
 
@@ -485,6 +518,7 @@ def main():
                     # Get the image from the SAME request (same frame as inference)
                     frame = request.make_array("main")
                     img = Image.fromarray(frame)
+                    img = draw_dog_boxes(img, dog_boxes)
                     img.save(filepath, quality=JPEG_QUALITY)
 
                     last_dog_time = timestamp_str
