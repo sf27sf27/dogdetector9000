@@ -30,7 +30,8 @@ log = logging.getLogger("dogwatch")
 
 # ── Config ───────────────────────────────────────────
 MODEL_PATH = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
-LABELS_PATH = Path(__file__).parent / "coco_labels.txt"
+BASE_DIR = Path(__file__).parent
+LABELS_PATH = BASE_DIR / "coco_labels.txt"
 
 PERSON_CLASS = "person"
 DOG_CLASS = "dog"
@@ -43,9 +44,9 @@ NOTIFY_COOLDOWN = 60         # minimum seconds between push notifications
 MAX_KEPT_FRAMES = 10         # rolling buffer of dog frames
 JPEG_QUALITY = 75            # lower than 85 to reduce SD writes, negligible visual diff at 640x480
 
-FRAME_DIR = Path("/home/pi/dog_watch/frames")
-STATUS_FILE = Path("/home/pi/dog_watch/status.json")
-ALERT_SOUND = Path("/home/pi/dog_watch/alert.wav")
+FRAME_DIR = BASE_DIR / "frames"
+STATUS_FILE = BASE_DIR / "status.json"
+ALERT_SOUND = BASE_DIR / "alert.wav"
 
 NTFY_TOPIC = "dogwatch-770291bdb79df5f2"
 NTFY_HEALTH_TOPIC = "dogwatch-health-e790a2780c99c782"

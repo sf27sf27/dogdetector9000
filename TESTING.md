@@ -17,13 +17,13 @@ git push -u origin main
 ### On the Pi (SSH in and pull)
 
 ```bash
-ssh pi@<pi-ip>
+ssh sf27@<pi-ip>
 
 # Install git if not present
 sudo apt install -y git
 
 # Clone the repo
-git clone https://github.com/sf27sf27/dogdetector9000.git /home/pi/dog_watch
+git clone https://github.com/sf27sf27/dogdetector9000.git ~/dogdetector9000
 
 # Install Python dependencies
 sudo apt install -y python3-libcamera python3-kms++ libcap-dev imx500-all
@@ -82,14 +82,14 @@ curl -d "DogWatch test notification" https://ntfy.sh/dogwatch-770291bdb79df5f2
 ### 2d. Verify COCO labels file
 
 ```bash
-head -20 /home/pi/dog_watch/coco_labels.txt
+head -20 ~/dogdetector9000/coco_labels.txt
 ```
 
 **Expected:** First line is `person`, line 17 is `dog`. Verify with:
 
 ```bash
-sed -n '1p' /home/pi/dog_watch/coco_labels.txt   # should print: person
-sed -n '17p' /home/pi/dog_watch/coco_labels.txt   # should print: dog
+sed -n '1p' ~/dogdetector9000/coco_labels.txt   # should print: person
+sed -n '17p' ~/dogdetector9000/coco_labels.txt   # should print: dog
 ```
 
 ### 2e. Memory baseline
@@ -107,7 +107,7 @@ free -m
 Run the script directly (not via systemd) so you can see log output in real time.
 
 ```bash
-cd /home/pi/dog_watch
+cd ~/dogdetector9000
 python3 dog_watch.py
 ```
 
@@ -143,7 +143,7 @@ Hold your phone in front of the camera showing a clear photo of a dog. Wait 2-3 
 **Verify frame was saved:**
 
 ```bash
-ls -la /home/pi/dog_watch/frames/
+ls -la ~/dogdetector9000/frames/
 ```
 
 **Verify notification arrived** on your phone via the ntfy app.
@@ -174,10 +174,10 @@ Note: Debug-level messages are hidden by default. To see them, temporarily chang
 
 ```bash
 # Before walking in front of camera, note the frame count:
-ls /home/pi/dog_watch/frames/ | wc -l
+ls ~/dogdetector9000/frames/ | wc -l
 
 # Walk in front of camera, wait 5 seconds, check again:
-ls /home/pi/dog_watch/frames/ | wc -l
+ls ~/dogdetector9000/frames/ | wc -l
 ```
 
 **Expected:** Frame count does NOT increase while a person is visible.
@@ -239,7 +239,7 @@ curl -s http://localhost:8080/api/frames | python3 -m json.tool
 Trigger more than 10 dog detections (the `MAX_KEPT_FRAMES` limit).
 
 ```bash
-ls /home/pi/dog_watch/frames/ | wc -l
+ls ~/dogdetector9000/frames/ | wc -l
 ```
 
 **Expected:** Never more than 10 frames. Oldest frames are deleted automatically.
@@ -250,7 +250,7 @@ While the script is running, rapidly read the status file:
 
 ```bash
 for i in $(seq 1 100); do
-  python3 -c "import json; json.load(open('/home/pi/dog_watch/status.json'))" 2>&1
+  python3 -c "import json; json.load(open(os.path.expanduser('~/dogdetector9000/status.json')))" 2>&1
 done
 ```
 
@@ -264,7 +264,7 @@ The heartbeat fires every 30 minutes by default. For testing, you can temporaril
 
 ```bash
 # Edit on the Pi temporarily
-nano /home/pi/dog_watch/dog_watch.py
+nano ~/dogdetector9000/dog_watch.py
 # Change HEALTH_HEARTBEAT_INTERVAL = 1800 to 60
 ```
 

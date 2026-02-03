@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/dog_watch
-ExecStart=/usr/bin/python3 /home/pi/dog_watch/dog_watch.py
+User=sf27
+WorkingDirectory=/home/sf27/dogdetector9000
+ExecStart=/usr/bin/python3 /home/sf27/dogdetector9000/dog_watch.py
 Restart=always
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
