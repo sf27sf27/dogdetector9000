@@ -36,8 +36,8 @@ LABELS_PATH = BASE_DIR / "coco_labels.txt"
 PERSON_CLASS = "person"
 DOG_CLASS = "dog"
 
-DOG_CONFIDENCE_THRESHOLD = 0.50
-PERSON_CONFIDENCE_THRESHOLD = 0.30  # Lower = more cautious for privacy
+DOG_CONFIDENCE_THRESHOLD = 0.25     # temporarily lowered for testing
+PERSON_CONFIDENCE_THRESHOLD = 0.99  # temporarily raised to disable privacy gate for testing
 
 CAPTURE_INTERVAL = 1.0       # seconds between inference cycles
 NOTIFY_COOLDOWN = 60         # minimum seconds between push notifications
