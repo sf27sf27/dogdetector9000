@@ -1,0 +1,16 @@
+[Unit]
+Description=DogWatch Dog Detection Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/dog_watch
+ExecStart=/usr/bin/python3 /home/pi/dog_watch/dog_watch.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
