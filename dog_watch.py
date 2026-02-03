@@ -136,6 +136,9 @@ def parse_detections(imx500, intrinsics, metadata):
         class_id = int(classes[i])
         label = intrinsics.labels[class_id] if class_id < len(intrinsics.labels) else f"unknown({class_id})"
         score = float(scores[i])
+        # IMX500 post-processed models return scores in 0-100 range; normalize to 0-1
+        if score > 1.0:
+            score /= 100.0
         bbox = tuple(float(v) for v in boxes[i])
         log.info("  Detection: class_id=%d label=%r score=%.2f bbox=%s", class_id, label, score, bbox)
         results.append((label, score, bbox))
