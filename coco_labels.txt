@@ -1,3 +1,4 @@
+background
 person
 bicycle
 car
@@ -9,6 +10,7 @@ truck
 boat
 traffic light
 fire hydrant
+_reserved_12
 stop sign
 parking meter
 bench
@@ -22,8 +24,11 @@ elephant
 bear
 zebra
 giraffe
+_reserved_26
 backpack
 umbrella
+_reserved_29
+_reserved_30
 handbag
 tie
 suitcase
@@ -38,6 +43,7 @@ skateboard
 surfboard
 tennis racket
 bottle
+_reserved_45
 wine glass
 cup
 fork
@@ -58,8 +64,21 @@ chair
 couch
 potted plant
 bed
+_reserved_66
 dining table
+_reserved_68
+_reserved_69
 toilet
+_reserved_71
+_reserved_72
+_reserved_73
+_reserved_74
+_reserved_75
+_reserved_76
+_reserved_77
+_reserved_78
+_reserved_79
+_reserved_80
 tv
 laptop
 mouse
