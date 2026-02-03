@@ -187,25 +187,35 @@ def analyze_frame(imx500, intrinsics, metadata):
     return dog_count, max_dog_confidence, human_detected
 
 
-def send_notification(timestamp_str, confidence, dog_count):
-    """Send push notification via ntfy.sh using urllib (no subprocess)."""
+def send_notification(timestamp_str, confidence, dog_count, filepath=None):
+    """Send push notification via ntfy.sh with optional image attachment."""
     try:
         dogs_word = "dog" if dog_count == 1 else "dogs"
         message = (
             f"{dog_count} {dogs_word} on couch detected at {timestamp_str} "
             f"({confidence:.0%} confidence)"
         )
-        data = message.encode("utf-8")
+        headers = {
+            "Title": "Dog Alert!",
+            "Priority": "default",
+            "Tags": "dog",
+        }
+
+        if filepath and Path(filepath).exists():
+            # Send the image as the body with message in header
+            headers["Message"] = message
+            headers["Filename"] = Path(filepath).name
+            with open(filepath, "rb") as f:
+                data = f.read()
+        else:
+            data = message.encode("utf-8")
+
         req = urllib.request.Request(
             f"{NTFY_SERVER}/{NTFY_TOPIC}",
             data=data,
-            headers={
-                "Title": "Dog Alert!",
-                "Priority": "default",
-                "Tags": "dog",
-            },
+            headers=headers,
         )
-        urllib.request.urlopen(req, timeout=10)
+        urllib.request.urlopen(req, timeout=30)
     except Exception as e:
         log.error("Notification error: %s", e)
 
@@ -485,7 +495,7 @@ def main():
                     if now - last_notified > NOTIFY_COOLDOWN:
                         threading.Thread(
                             target=send_notification,
-                            args=(timestamp_str, confidence, dog_count),
+                            args=(timestamp_str, confidence, dog_count, filepath),
                             daemon=True,
                         ).start()
                         play_alert()
