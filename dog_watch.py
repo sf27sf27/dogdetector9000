@@ -142,22 +142,20 @@ def parse_detections(imx500, intrinsics, metadata):
         log.info("First 20 labels: %s", intrinsics.labels[:20])
         log.info("=== END TENSOR DUMP ===")
 
-    # Parse using current assumed order — will fix once we see the dump
+    # Tensor order: [0]=boxes, [1]=scores, [2]=class_ids, [3]=num_detections
     boxes = np_outputs[0][0]
-    classes = np_outputs[1][0]
-    scores = np_outputs[2][0]
-    num = int(np_outputs[3][0])
+    scores = np_outputs[1][0]
+    classes = np_outputs[2][0]
 
     results = []
-    for i in range(min(num, 5)):  # limit log spam to 5
+    for i in range(len(scores)):
+        score = float(scores[i])
+        if score < 0.05:  # skip very low confidence noise
+            continue
         class_id = int(classes[i])
         label = intrinsics.labels[class_id] if class_id < len(intrinsics.labels) else f"unknown({class_id})"
-        score = float(scores[i])
-        if score > 1.0:
-            score /= 100.0
         bbox = tuple(float(v) for v in boxes[i])
-        log.info("  Det[%d]: raw_class=%.4f raw_score=%.4f -> class_id=%d label=%r score=%.2f",
-                 i, float(classes[i]), float(scores[i]), class_id, label, score)
+        log.info("  Detection: class_id=%d label=%r score=%.2f bbox=%s", class_id, label, score, bbox)
         results.append((label, score, bbox))
     return results
 
