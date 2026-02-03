@@ -117,30 +117,47 @@ def bbox_overlap_fraction(dog_bbox, roi):
     return intersection / dog_area
 
 
+_tensor_dump_done = False
+
 def parse_detections(imx500, intrinsics, metadata):
     """Parse IMX500 output tensors into a list of (label, confidence, bbox)."""
+    global _tensor_dump_done
     np_outputs = imx500.get_outputs(metadata, add_batch=True)
     if np_outputs is None:
         log.info("No inference output yet (firmware may still be loading)")
         return []
 
-    # MobileNet SSD post-processed output format:
-    # [0] bboxes (normalized), [1] class_ids, [2] scores, [3] num_detections
+    # ── DIAGNOSTIC: dump raw tensor info once ──
+    if not _tensor_dump_done:
+        _tensor_dump_done = True
+        log.info("=== RAW TENSOR DUMP ===")
+        log.info("Number of output tensors: %d", len(np_outputs))
+        for idx, t in enumerate(np_outputs):
+            log.info("  Tensor[%d]: shape=%s dtype=%s", idx, t.shape, t.dtype)
+            flat = t.flatten()
+            preview = [float(v) for v in flat[:10]]
+            log.info("  Tensor[%d] first values: %s", idx, preview)
+        log.info("Labels source: %s", "model" if imx500.network_intrinsics and imx500.network_intrinsics.labels else "file")
+        log.info("Labels count: %d", len(intrinsics.labels))
+        log.info("First 20 labels: %s", intrinsics.labels[:20])
+        log.info("=== END TENSOR DUMP ===")
+
+    # Parse using current assumed order — will fix once we see the dump
     boxes = np_outputs[0][0]
     classes = np_outputs[1][0]
     scores = np_outputs[2][0]
     num = int(np_outputs[3][0])
 
     results = []
-    for i in range(num):
+    for i in range(min(num, 5)):  # limit log spam to 5
         class_id = int(classes[i])
         label = intrinsics.labels[class_id] if class_id < len(intrinsics.labels) else f"unknown({class_id})"
         score = float(scores[i])
-        # IMX500 post-processed models return scores in 0-100 range; normalize to 0-1
         if score > 1.0:
             score /= 100.0
         bbox = tuple(float(v) for v in boxes[i])
-        log.info("  Detection: class_id=%d label=%r score=%.2f bbox=%s", class_id, label, score, bbox)
+        log.info("  Det[%d]: raw_class=%.4f raw_score=%.4f -> class_id=%d label=%r score=%.2f",
+                 i, float(classes[i]), float(scores[i]), class_id, label, score)
         results.append((label, score, bbox))
     return results
 
