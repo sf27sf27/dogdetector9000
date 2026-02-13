@@ -46,14 +46,14 @@ JPEG_QUALITY = 75            # lower than 85 to reduce SD writes, negligible vis
 
 FRAME_DIR = BASE_DIR / "frames"
 STATUS_FILE = BASE_DIR / "status.json"
-ALERT_SOUND = BASE_DIR / "alert.wav"
+ALERT_SOUND = BASE_DIR / "DOG DETECTED ALERT D (2) 2.m4a"
 
 NTFY_TOPIC = "dogwatch-770291bdb79df5f2"
 NTFY_HEALTH_TOPIC = "dogwatch-health-e790a2780c99c782"
 NTFY_SERVER = "https://ntfy.sh"
 
-AUDIO_ENABLED = False        # set to True once I2S amp is installed
-AUDIO_DEVICE = "plughw:0,0"  # adjust based on `aplay -l` output
+AUDIO_ENABLED = True
+ALERT_REPLAY_WINDOW = 10    # seconds after audio finishes to wait for re-detection
 
 # Region of interest: only alert when dog bbox overlaps this zone.
 # Coordinates as fractions of frame dimensions (x1, y1, x2, y2).
@@ -71,22 +71,25 @@ STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 def verify_audio_device():
-    """Check that the configured audio device exists. Disable audio if not found."""
+    """Check that ffplay is available for audio playback. Disable audio if not found."""
     global AUDIO_ENABLED
     if not AUDIO_ENABLED:
         log.info("Audio disabled via config (AUDIO_ENABLED=False)")
         return
     try:
         result = subprocess.run(
-            ["aplay", "-l"], capture_output=True, text=True, timeout=5
+            ["ffplay", "-version"], capture_output=True, text=True, timeout=5
         )
-        if "card" not in result.stdout.lower():
-            log.warning("No audio devices found via aplay -l. Disabling audio alerts.")
-            AUDIO_ENABLED = False
+        if result.returncode == 0:
+            log.info("ffplay found for audio playback")
         else:
-            log.info("Audio devices found:\n%s", result.stdout.strip())
+            log.warning("ffplay not working. Disabling audio alerts.")
+            AUDIO_ENABLED = False
+    except FileNotFoundError:
+        log.warning("ffplay not found. Install ffmpeg to enable audio alerts.")
+        AUDIO_ENABLED = False
     except Exception as e:
-        log.warning("Could not verify audio device: %s. Disabling audio alerts.", e)
+        log.warning("Could not verify ffplay: %s. Disabling audio alerts.", e)
         AUDIO_ENABLED = False
 
 
@@ -278,21 +281,56 @@ def send_heartbeat():
         log.error("Heartbeat error: %s", e)
 
 
-def play_alert():
-    """Play alert sound via I2S speaker (non-blocking). Skips silently if audio is disabled."""
+_alert_active = False
+_last_dog_detection_time = 0.0
+
+
+def _play_alert_loop():
+    """Play alert sound fully, then replay if dog re-detected within ALERT_REPLAY_WINDOW."""
+    global _alert_active
+    _alert_active = True
+    try:
+        while True:
+            log.info("Playing dog alert sound...")
+            try:
+                subprocess.run(
+                    ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
+                     str(ALERT_SOUND)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                log.error("Audio playback error: %s", e)
+                break
+
+            # Wait up to ALERT_REPLAY_WINDOW for another dog detection
+            finish_time = time.time()
+            replaying = False
+            while time.time() - finish_time < ALERT_REPLAY_WINDOW:
+                if _last_dog_detection_time > finish_time:
+                    replaying = True
+                    break
+                time.sleep(0.5)
+
+            if not replaying:
+                log.info("No dog re-detected within %ds — stopping alert.", ALERT_REPLAY_WINDOW)
+                break
+            log.info("Dog still detected — replaying alert.")
+    finally:
+        _alert_active = False
+
+
+def trigger_alert():
+    """Record dog detection time and start alert playback if not already active."""
+    global _last_dog_detection_time
     if not AUDIO_ENABLED:
         return
     if not ALERT_SOUND.exists():
         log.warning("Alert sound file not found: %s", ALERT_SOUND)
         return
-    try:
-        subprocess.Popen(
-            ["aplay", "-D", AUDIO_DEVICE, str(ALERT_SOUND)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except Exception as e:
-        log.error("Audio error: %s", e)
+    _last_dog_detection_time = time.time()
+    if not _alert_active:
+        threading.Thread(target=_play_alert_loop, daemon=True).start()
 
 
 def update_status(dog_count, human_present, last_dog_time=None):
@@ -530,6 +568,9 @@ def main():
                         dog_count, dogs_word, confidence * 100, filename,
                     )
 
+                    # Play alert sound (handles replay logic internally)
+                    trigger_alert()
+
                     # Send notification (with cooldown)
                     now = time.time()
                     if now - last_notified > NOTIFY_COOLDOWN:
@@ -538,7 +579,6 @@ def main():
                             args=(timestamp_str, confidence, dog_count, filepath),
                             daemon=True,
                         ).start()
-                        play_alert()
                         last_notified = now
 
                 update_status(
