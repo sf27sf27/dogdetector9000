@@ -96,7 +96,7 @@ def bbox_overlap_fraction(dog_bbox, roi):
     Both are (x1, y1, x2, y2) tuples, normalized to [0, 1].
     Returns a float in [0, 1].
     """
-    dx1, dy1, dx2, dy2 = dog_bbox
+    dy1, dx1, dy2, dx2 = dog_bbox
     rx1, ry1, rx2, ry2 = roi
 
     # Intersection
@@ -196,8 +196,8 @@ def draw_dog_boxes(img, dog_boxes):
     w, h = img.size
 
     for bbox, score in dog_boxes:
-        # bbox is normalized (y1, x1, y2, x2) or (x1, y1, x2, y2) — convert to pixel coords
-        x1, y1, x2, y2 = bbox
+        # bbox is normalized (y1, x1, y2, x2) from TFLite SSD — convert to pixel coords
+        y1, x1, y2, x2 = bbox
         px1, py1, px2, py2 = int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h)
 
         # Draw box
